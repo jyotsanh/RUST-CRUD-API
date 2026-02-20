@@ -1,0 +1,27 @@
+services:
+  # Your Rust Actix-Web Application
+  api:
+    build: .
+    ports:
+      - "8080:8080" # Map host port 8080 to container port 8080
+    environment:
+      # This URI connects the Rust app to the MongoDB container
+      # "mongo" resolves to the container named "mongo" on the Docker network
+      - MONGOURI=mongodb://mongo:27017
+      - RUST_LOG=info
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  # The MongoDB Service
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27015:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+# Define a named volume to persist MongoDB data across container restarts
+volumes:
+  mongodb_data:
