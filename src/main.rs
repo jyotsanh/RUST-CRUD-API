@@ -3,8 +3,8 @@ mod models;
 mod repository;
 
 use actix_web::{web::Data, App, HttpServer};
-use api::product_api::{create_product, delete_product, get_all_products, get_product, update_product};
-use repository::mongodb_repo::MongoRepo;
+use api::product_api::{create_product, delete_product, list_products, get_product, update_product};
+use repository::sqlite_repo::SqliteRepo;
 use actix_web::{middleware::Logger};
 use log::info;
 use std::env;
@@ -19,21 +19,29 @@ async fn main() -> std::io::Result<()> {
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(8080);
+    // Unset or invalid WORKERS falls back to actix's default (one per physical CPU core)
+    let workers: Option<usize> = env::var("WORKERS")
+        .ok()
+        .and_then(|w| w.parse().ok())
+        .filter(|&w| w > 0);
 
-    let db = MongoRepo::init().await;
+    let db = SqliteRepo::init().await;
     let db_data = Data::new(db);
 
-    let server = HttpServer::new(move || {
+    let mut server = HttpServer::new(move || {
         App::new()
             .app_data(db_data.clone())
             .service(create_product)
             .service(get_product)
             .service(update_product)
             .service(delete_product)
-            .service(get_all_products)
+            .service(list_products)
             .wrap(Logger::new("%a %r %s %b %{Referer}i %T"))
-    })
-    .bind((host.as_str(), port))?;
+    });
+    if let Some(workers) = workers {
+        server = server.workers(workers);
+    }
+    let server = server.bind((host.as_str(), port))?;
 
     info!("Server running at http://{}:{}", host, port);
     server.run().await
