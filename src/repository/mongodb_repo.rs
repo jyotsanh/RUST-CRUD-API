@@ -10,16 +10,16 @@ use mongodb::{
     Client, Collection,
 };
 
-use crate::models::user_model::User;
+use crate::models::product_model::Product;
 
 pub struct MongoRepo {
-    col: Collection<User>,
+    col: Collection<Product>,
 }
 
 impl MongoRepo {
     pub async fn init() -> Self {
         dotenv().ok();
-        let uri = match env::var("MONGOURI") {
+        let uri = match env::var("MONGO_URI") {
             Ok(v) => v.to_string(),
             Err(_) => format!("Error loading env variable"),
         };
@@ -27,50 +27,50 @@ impl MongoRepo {
             .await
             .expect("error connecting to database");
         let db = client.database("rustDB");
-        let col: Collection<User> = db.collection("User");
+        let col: Collection<Product> = db.collection("Product");
         MongoRepo { col }
     }
 
-    pub async fn create_user(&self, new_user: User) -> Result<InsertOneResult, Error> {
-        let new_doc = User {
+    pub async fn create_product(&self, new_product: Product) -> Result<InsertOneResult, Error> {
+        let new_doc = Product {
             id: None,
-            name: new_user.name,
-            location: new_user.location,
-            title: new_user.title,
+            name: new_product.name,
+            description: new_product.description,
+            price: new_product.price,
         };
-        let user = self
+        let product = self
             .col
             .insert_one(new_doc, None)
             .await
             .ok()
-            .expect("Error creating user");
+            .expect("Error creating product");
 
-        Ok(user)
+        Ok(product)
     }
 
-    pub async fn get_user(&self, id: &String) -> Result<User, Error> {
+    pub async fn get_product(&self, id: &String) -> Result<Product, Error> {
         let obj_id = ObjectId::parse_str(id).unwrap();
         let filter = doc! {"_id": obj_id};
-        let user_detail = self
+        let product_detail = self
             .col
             .find_one(filter, None)
             .await
             .ok()
-            .expect("Error getting user's detail");
+            .expect("Error getting product's detail");
 
-        Ok(user_detail.unwrap())
+        Ok(product_detail.unwrap())
     }
 
-    pub async fn update_user(&self, id: &String, new_user: User) -> Result<UpdateResult, Error> {
+    pub async fn update_product(&self, id: &String, new_product: Product) -> Result<UpdateResult, Error> {
         let obj_id = ObjectId::parse_str(id).unwrap();
         let filter = doc! {"_id": obj_id};
         let new_doc = doc! {
             "$set":
                 {
-                    "id": new_user.id,
-                    "name": new_user.name,
-                    "location": new_user.location,
-                    "title": new_user.title
+                    "id": new_product.id,
+                    "name": new_product.name,
+                    "description": new_product.description,
+                    "price": new_product.price
                 },
         };
         let updated_doc = self
@@ -78,39 +78,39 @@ impl MongoRepo {
             .update_one(filter, new_doc, None)
             .await
             .ok()
-            .expect("Error updating user");
+            .expect("Error updating product");
         Ok(updated_doc)
     }
 
-    pub async fn delete_user(&self, id: &String) -> Result<DeleteResult, Error> {
+    pub async fn delete_product(&self, id: &String) -> Result<DeleteResult, Error> {
         let obj_id = ObjectId::parse_str(id).unwrap();
         let filter = doc! {"_id": obj_id};
-        let user_detail = self
+        let product_detail = self
             .col
             .delete_one(filter, None)
             .await
             .ok()
-            .expect("Error deleting user");
+            .expect("Error deleting product");
 
-        Ok(user_detail)
+        Ok(product_detail)
     }
 
-    pub async fn get_all_users(&self) -> Result<Vec<User>, Error> {
+    pub async fn get_all_products(&self) -> Result<Vec<Product>, Error> {
         let mut cursors = self
             .col
             .find(None, None)
             .await
             .ok()
-            .expect("Error getting list of users");
-        let mut users: Vec<User> = Vec::new();
-        while let Some(user) = cursors
+            .expect("Error getting list of products");
+        let mut products: Vec<Product> = Vec::new();
+        while let Some(product) = cursors
             .try_next()
             .await
             .ok()
             .expect("Error mapping through cursor")
         {
-            users.push(user)
+            products.push(product)
         }
-        Ok(users)
+        Ok(products)
     }
 }
